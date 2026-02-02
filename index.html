@@ -3,75 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NMRSW Photobooth</title>
+    <title>NMRSW Photobooth v2</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
-        body { width: 100vw; height: 100vh; overflow: hidden; font-family: 'Kanit', sans-serif; }
-        .screen { display: none; width: 100%; height: 100%; position: absolute; }
+        body { 
+            width: 100vw; height: 100vh; overflow: hidden; 
+            font-family: 'Kanit', sans-serif; 
+            margin: 0; background: #1a1a1a;
+        }
+        .screen { display: none; width: 100%; height: 100%; }
         .active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        #camera-feed { transform: scaleX(-1); border-radius: 20px; }
-        .frame-2x6 { width: 300px; height: 900px; background: white; padding: 10px; border: 1px solid #ddd; }
-        .photo-slot { width: 280px; height: 260px; background: #eee; margin-bottom: 10px; overflow: hidden; }
+        
+        /* ปรับขนาด Video ให้เล็กลงเพื่อความพอดี */
+        #camera-feed { 
+            transform: scaleX(-1); 
+            border-radius: 15px;
+            width: 640px; 
+            height: 480px;
+            object-fit: cover;
+            border: 4px solid #444;
+        }
+
+        /* หน้าเลือกรูป: ปรับขนาด Frame 2x6 ให้สมส่วนกับจอ iPad */
+        .frame-preview-area {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            max-height: 80vh;
+            width: 90%;
+        }
+        
+        .frame-2x6 { 
+            width: 220px; /* ลดขนาดลงจากเดิม */
+            height: 600px; 
+            background: white; 
+            padding: 12px; 
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        
+        .photo-slot { 
+            width: 100%; 
+            height: 170px; 
+            background: #f0f0f0; 
+            overflow: hidden;
+            border: 1px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+        
+        #countdown-overlay {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 20px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 50;
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-white">
+<body>
 
-    <div id="screen-home" class="screen active bg-[url('YOUR_BG_IMAGE_URL')] bg-cover bg-center">
-        <h1 class="text-6xl font-bold mb-10 drop-shadow-lg">NMRSW PHOTOBOOTH</h1>
-        <button onclick="nextScreen('screen-capture')" class="bg-pink-600 hover:bg-pink-500 text-white text-3xl px-12 py-6 rounded-full font-bold transition-all transform hover:scale-110">
-            เริ่มถ่ายรูป (START)
+    <div id="screen-home" class="screen active bg-gradient-to-br from-indigo-900 to-purple-900">
+        <h1 class="text-5xl font-bold text-white mb-12">NMRSW PHOTOBOOTH</h1>
+        <button onclick="nextScreen('screen-capture')" class="bg-white text-indigo-900 text-2xl px-16 py-6 rounded-full font-bold shadow-2xl active:scale-95 transition-all">
+            แตะเพื่อเริ่ม (START)
         </button>
     </div>
 
-    <div id="screen-capture" class="screen bg-gray-800">
-        <div class="flex gap-10 items-center p-10">
+    <div id="screen-capture" class="screen bg-gray-900 p-8">
+        <div class="flex flex-row items-center gap-8">
             <div class="relative">
-                <video id="camera-feed" width="800" height="600" autoplay playsinline></video>
-                <div id="countdown" class="absolute inset-0 flex items-center justify-center text-[200px] font-bold text-white hidden">3</div>
+                <video id="camera-feed" autoplay playsinline></video>
+                <div id="countdown-overlay" class="hidden">3</div>
             </div>
-            <div class="flex flex-col gap-4">
-                <h2 class="text-3xl font-bold">เตรียมตัวให้พร้อม!</h2>
-                <p>ถ่ายทั้งหมด 5 รูป</p>
-                <button id="btn-snap" onclick="startCaptureProcess()" class="bg-yellow-500 text-black text-2xl px-10 py-5 rounded-xl font-bold">
-                    กดเพื่อเริ่มถ่าย (3 วิ)
-                </button>
-                <div id="preview-strip" class="flex gap-2 mt-4 overflow-x-auto"></div>
+            
+            <div class="text-white flex flex-col items-center w-64">
+                <div class="text-xl mb-4 text-gray-400">รูปที่ <span id="photo-count" class="text-yellow-400 text-3xl font-bold">0</span> / 5</div>
+                <button id="snap-btn" onclick="takePhotoWithTimer()" class="bg-red-500 w-32 h-32 rounded-full border-8 border-white shadow-lg active:bg-red-700 transition-colors"></button>
+                <p class="mt-4 text-center text-lg">จัดท่าทางแล้ว<br>กดปุ่มสีแดง</p>
+                <div id="mini-previews" class="flex gap-2 mt-8 flex-wrap justify-center"></div>
             </div>
         </div>
     </div>
 
-    <div id="screen-select" class="screen bg-white text-black p-10">
-        <div class="flex w-full h-full gap-10">
-            <div id="available-photos" class="flex-1 grid grid-cols-2 gap-4 overflow-y-auto">
-                </div>
+    <div id="screen-select" class="screen bg-gray-100">
+        <div class="frame-preview-area">
+            <div class="bg-gray-200 p-4 rounded-xl overflow-y-auto">
+                <h3 class="text-xl font-bold mb-4 text-gray-700">เลือก 3 รูปที่ชอบที่สุด:</h3>
+                <div id="photo-grid" class="grid grid-cols-2 gap-3"></div>
+            </div>
+
             <div class="flex flex-col items-center">
-                <div id="print-frame" class="frame-2x6 shadow-2xl flex flex-col items-center pt-10">
-                    <div class="photo-slot" onclick="selectSlot(0)"></div>
-                    <div class="photo-slot" onclick="selectSlot(1)"></div>
-                    <div class="photo-slot" onclick="selectSlot(2)"></div>
-                    <p class="text-sm font-bold mt-4">NMRSW PHOTOBOOTH 2026</p>
+                <div id="print-frame" class="frame-2x6">
+                    <div class="photo-slot" onclick="setCurrentSlot(0)"></div>
+                    <div class="photo-slot" onclick="setCurrentSlot(1)"></div>
+                    <div class="photo-slot" onclick="setCurrentSlot(2)"></div>
+                    <div class="mt-auto text-center font-bold text-gray-800 tracking-widest text-xs">
+                        NMRSW PHOTOBOOTH 2026
+                    </div>
                 </div>
-                <button onclick="generateQR()" class="mt-6 bg-green-600 text-white px-10 py-4 rounded-full text-xl font-bold">ยืนยันและรับรูป</button>
+                <button onclick="confirmFrame()" class="mt-6 bg-green-500 text-white px-8 py-3 rounded-xl font-bold w-full shadow-lg">ยืนยัน (OK)</button>
             </div>
         </div>
     </div>
 
-    <div id="screen-done" class="screen bg-gray-100 text-black">
-        <h2 class="text-4xl font-bold mb-8">แสกนเพื่อดาวน์โหลด</h2>
-        <div id="qrcode-container" class="bg-white p-10 rounded-3xl shadow-xl mb-10">
-            <img id="qr-img" src="" alt="QR Code" class="w-64 h-64">
+    <div id="screen-done" class="screen bg-white">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6">รับรูปภาพของคุณ</h2>
+        <div class="bg-gray-50 p-8 rounded-3xl border-2 border-dashed border-gray-300">
+            <img id="qr-img" src="" class="w-48 h-48 mx-auto bg-gray-200">
+            <p class="mt-4 text-gray-500 text-center">แสกน QR Code เพื่อโหลดรูป</p>
         </div>
-        <button onclick="resetBooth()" class="bg-blue-600 text-white px-12 py-5 rounded-full text-2xl font-bold">เสร็จสิ้น (DONE)</button>
+        <button onclick="location.reload()" class="mt-10 text-blue-600 font-bold text-lg">เสร็จสิ้น / กลับหน้าแรก</button>
     </div>
 
-    <canvas id="hidden-canvas" class="hidden"></canvas>
+    <canvas id="hidden-canvas" style="display:none;"></canvas>
 
     <script>
-        let capturedImages = [];
-        let selectedForFrame = [null, null, null];
-        let currentSlot = 0;
+        let photos = [];
+        let selectedPhotos = [null, null, null];
+        let activeSlot = 0;
 
-        // ฟังก์ชันสลับหน้าจอ
         function nextScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -79,77 +139,97 @@
         }
 
         async function initCamera() {
-            const video = document.getElementById('camera-feed');
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-            video.srcObject = stream;
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 1280, height: 720, facingMode: "user" } 
+            });
+            document.getElementById('camera-feed').srcObject = stream;
         }
 
-        async function startCaptureProcess() {
-            document.getElementById('btn-snap').disabled = true;
-            capturedImages = [];
+        function takePhotoWithTimer() {
+            const btn = document.getElementById('snap-btn');
+            const overlay = document.getElementById('countdown-overlay');
+            btn.disabled = true;
             
-            for(let i=0; i<5; i++) {
-                await runCountdown(3);
-                capturePhoto();
-            }
-            
-            setTimeout(() => {
-                renderSelection();
-                nextScreen('screen-select');
+            let count = 3;
+            overlay.classList.remove('hidden');
+            overlay.innerText = count;
+
+            const timer = setInterval(() => {
+                count--;
+                if(count > 0) {
+                    overlay.innerText = count;
+                } else {
+                    clearInterval(timer);
+                    overlay.classList.add('hidden');
+                    doSnap();
+                    btn.disabled = false;
+                }
             }, 1000);
         }
 
-        function runCountdown(sec) {
-            return new Promise(resolve => {
-                let count = sec;
-                const el = document.getElementById('countdown');
-                el.classList.remove('hidden');
-                const timer = setInterval(() => {
-                    el.innerText = count;
-                    if(count === 0) {
-                        clearInterval(timer);
-                        el.classList.add('hidden');
-                        resolve();
-                    }
-                    count--;
-                }, 1000);
-            });
-        }
-
-        function capturePhoto() {
+        function doSnap() {
             const video = document.getElementById('camera-feed');
             const canvas = document.getElementById('hidden-canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            const imgData = canvas.toDataURL('image/png');
-            capturedImages.push(imgData);
+            canvas.width = 640;
+            canvas.height = 480;
+            const ctx = canvas.getContext('2d');
+            
+            // Flip horizontal สำหรับรูปถ่าย
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, 640, 480);
+            
+            const data = canvas.toDataURL('image/png');
+            photos.push(data);
+            
+            updateCaptureUI();
+
+            if(photos.length >= 5) {
+                setTimeout(() => {
+                    setupSelectionScreen();
+                    nextScreen('screen-select');
+                }, 800);
+            }
         }
 
-        function renderSelection() {
-            const container = document.getElementById('available-photos');
-            container.innerHTML = capturedImages.map((img, i) => 
-                `<img src="${img}" class="w-full rounded shadow cursor-pointer border-4 border-transparent hover:border-pink-500" onclick="putInSlot('${img}')">`
-            ).join('');
+        function updateCaptureUI() {
+            document.getElementById('photo-count').innerText = photos.length;
+            const mini = document.getElementById('mini-previews');
+            const img = document.createElement('img');
+            img.src = photos[photos.length-1];
+            img.className = "w-12 h-12 rounded border border-white shadow";
+            mini.appendChild(img);
         }
 
-        function putInSlot(img) {
-            if(currentSlot > 2) currentSlot = 0;
+        function setupSelectionScreen() {
+            const grid = document.getElementById('photo-grid');
+            grid.innerHTML = photos.map((src, i) => `
+                <img src="${src}" class="rounded-lg cursor-pointer border-4 border-transparent hover:border-blue-500 shadow" 
+                     onclick="addToFrame('${src}')">
+            `).join('');
+        }
+
+        function addToFrame(src) {
             const slots = document.querySelectorAll('.photo-slot');
-            slots[currentSlot].innerHTML = `<img src="${img}" class="w-full h-full object-cover">`;
-            selectedForFrame[currentSlot] = img;
-            currentSlot++;
+            if(activeSlot < 3) {
+                slots[activeSlot].innerHTML = `<img src="${src}">`;
+                selectedPhotos[activeSlot] = src;
+                activeSlot++;
+            } else {
+                // ถ้าเต็มแล้ว ให้เริ่มวนใหม่ที่ช่องแรก
+                activeSlot = 0;
+                addToFrame(src);
+            }
         }
 
-        function generateQR() {
-            // ในขั้นตอนจริงต้องส่งรูปไป Google Drive แล้วเอา URL มาทำ QR
-            // ตัวอย่างนี้จำลองการไปหน้าสุดท้าย
-            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://drive.google.com/your-link`;
+        function confirmFrame() {
+            if(selectedPhotos.includes(null)) {
+                alert("กรุณาเลือกรูปให้ครบ 3 ช่องครับ");
+                return;
+            }
+            // จำลองการสร้าง QR (ในระบบจริงต้อง upload รูปไป Drive ก่อน)
+            document.getElementById('qr-img').src = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://drive.google.com/NMRSW_PHOTO";
             nextScreen('screen-done');
-        }
-
-        function resetBooth() {
-            location.reload(); // วิธีที่ง่ายที่สุดในการล้างค่าทั้งหมด
         }
     </script>
 </body>
