@@ -2,143 +2,154 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <title>Photobooth AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NMRSW Photobooth</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #ffe6f2; }
-        
-        /* Container สำหรับซ้อน Video กับ Frame */
-        #booth-container {
-            position: relative;
-            width: 320px; /* ปรับตามขนาดกรอบ */
-            height: 480px;
-            margin: 0 auto;
-            border: 5px solid #ff99cc;
-            overflow: hidden;
-            background: #000;
-        }
-
-        video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1); /* กลับด้านเหมือนกระจก */
-        }
-
-        #overlay-frame {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* ให้คลิกทะลุได้ */
-            z-index: 10;
-        }
-
-        .controls { margin-top: 20px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #ff66b2; color: white; border: none; border-radius: 20px; }
-        
-        #result-area { display: none; margin-top: 20px; }
-        #qr-image { width: 150px; height: 150px; }
+        body { width: 100vw; height: 100vh; overflow: hidden; font-family: 'Kanit', sans-serif; }
+        .screen { display: none; width: 100%; height: 100%; position: absolute; }
+        .active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #camera-feed { transform: scaleX(-1); border-radius: 20px; }
+        .frame-2x6 { width: 300px; height: 900px; background: white; padding: 10px; border: 1px solid #ddd; }
+        .photo-slot { width: 280px; height: 260px; background: #eee; margin-bottom: 10px; overflow: hidden; }
     </style>
 </head>
-<body>
+<body class="bg-gray-900 text-white">
 
-    <h1>📸 K-Pop Style Photobooth</h1>
-
-    <div id="booth-container">
-        <video id="webcam" autoplay playsinline></video>
-        <img id="overlay-frame" src="frames/frame1.png" alt="frame">
+    <div id="screen-home" class="screen active bg-[url('YOUR_BG_IMAGE_URL')] bg-cover bg-center">
+        <h1 class="text-6xl font-bold mb-10 drop-shadow-lg">NMRSW PHOTOBOOTH</h1>
+        <button onclick="nextScreen('screen-capture')" class="bg-pink-600 hover:bg-pink-500 text-white text-3xl px-12 py-6 rounded-full font-bold transition-all transform hover:scale-110">
+            เริ่มถ่ายรูป (START)
+        </button>
     </div>
 
-    <div class="controls">
-        <button onclick="changeFrame('frames/frame1.png')">กรอบ 1</button>
-        <button onclick="changeFrame('frames/frame2.png')">กรอบ 2</button>
-        <br><br>
-        <button onclick="takePhoto()" style="font-size: 20px; background: #ff3366;">ถ่ายเลย! (3วิ)</button>
+    <div id="screen-capture" class="screen bg-gray-800">
+        <div class="flex gap-10 items-center p-10">
+            <div class="relative">
+                <video id="camera-feed" width="800" height="600" autoplay playsinline></video>
+                <div id="countdown" class="absolute inset-0 flex items-center justify-center text-[200px] font-bold text-white hidden">3</div>
+            </div>
+            <div class="flex flex-col gap-4">
+                <h2 class="text-3xl font-bold">เตรียมตัวให้พร้อม!</h2>
+                <p>ถ่ายทั้งหมด 5 รูป</p>
+                <button id="btn-snap" onclick="startCaptureProcess()" class="bg-yellow-500 text-black text-2xl px-10 py-5 rounded-xl font-bold">
+                    กดเพื่อเริ่มถ่าย (3 วิ)
+                </button>
+                <div id="preview-strip" class="flex gap-2 mt-4 overflow-x-auto"></div>
+            </div>
+        </div>
     </div>
 
-    <canvas id="canvas" style="display:none;"></canvas>
-
-    <div id="result-area">
-        <h3>รูปของคุณถูกบันทึกแล้ว!</h3>
-        <p>สแกนเพื่อดาวน์โหลด</p>
-        <img id="qr-image" src="" alt="QR Code">
-        <br>
-        <a id="drive-link" href="#" target="_blank">หรือคลิกที่นี่</a>
+    <div id="screen-select" class="screen bg-white text-black p-10">
+        <div class="flex w-full h-full gap-10">
+            <div id="available-photos" class="flex-1 grid grid-cols-2 gap-4 overflow-y-auto">
+                </div>
+            <div class="flex flex-col items-center">
+                <div id="print-frame" class="frame-2x6 shadow-2xl flex flex-col items-center pt-10">
+                    <div class="photo-slot" onclick="selectSlot(0)"></div>
+                    <div class="photo-slot" onclick="selectSlot(1)"></div>
+                    <div class="photo-slot" onclick="selectSlot(2)"></div>
+                    <p class="text-sm font-bold mt-4">NMRSW PHOTOBOOTH 2026</p>
+                </div>
+                <button onclick="generateQR()" class="mt-6 bg-green-600 text-white px-10 py-4 rounded-full text-xl font-bold">ยืนยันและรับรูป</button>
+            </div>
+        </div>
     </div>
+
+    <div id="screen-done" class="screen bg-gray-100 text-black">
+        <h2 class="text-4xl font-bold mb-8">แสกนเพื่อดาวน์โหลด</h2>
+        <div id="qrcode-container" class="bg-white p-10 rounded-3xl shadow-xl mb-10">
+            <img id="qr-img" src="" alt="QR Code" class="w-64 h-64">
+        </div>
+        <button onclick="resetBooth()" class="bg-blue-600 text-white px-12 py-5 rounded-full text-2xl font-bold">เสร็จสิ้น (DONE)</button>
+    </div>
+
+    <canvas id="hidden-canvas" class="hidden"></canvas>
 
     <script>
-        const video = document.getElementById('webcam');
-        const canvas = document.getElementById('canvas');
-        const frameImg = document.getElementById('overlay-frame');
-        
-        // 1. เปิดกล้อง
-        navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => console.error("Camera error:", err));
+        let capturedImages = [];
+        let selectedForFrame = [null, null, null];
+        let currentSlot = 0;
 
-        // 2. เปลี่ยนกรอบ
-        function changeFrame(src) {
-            frameImg.src = src;
+        // ฟังก์ชันสลับหน้าจอ
+        function nextScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'screen-capture') initCamera();
         }
 
-        // 3. ถ่ายรูป
-        function takePhoto() {
-            let count = 3;
-            const btn = document.querySelector('button[onclick="takePhoto()"]');
+        async function initCamera() {
+            const video = document.getElementById('camera-feed');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+            video.srcObject = stream;
+        }
+
+        async function startCaptureProcess() {
+            document.getElementById('btn-snap').disabled = true;
+            capturedImages = [];
             
-            const timer = setInterval(() => {
-                btn.innerText = `... ${count}`;
-                count--;
-                if (count < 0) {
-                    clearInterval(timer);
-                    btn.innerText = "ถ่ายเลย! (3วิ)";
-                    captureAndUpload();
-                }
+            for(let i=0; i<5; i++) {
+                await runCountdown(3);
+                capturePhoto();
+            }
+            
+            setTimeout(() => {
+                renderSelection();
+                nextScreen('screen-select');
             }, 1000);
         }
 
-        // 4. รวมภาพและอัปโหลด
-        function captureAndUpload() {
-            // ตั้งขนาด Canvas ให้เท่ากับ Video ที่แสดงผลจริง
-            const width = video.videoWidth;
-            const height = video.videoHeight;
-            
-            // ถ้าอยากให้รูปชัดขึ้น ให้ fix size ตามกรอบรูปจริง เช่น 1080x1920
-            // สำหรับตัวอย่างนี้เอาตามขนาดวิดีโอ
-            canvas.width = 320 * 2; // คูณ 2 เพื่อความชัด (Retina)
-            canvas.height = 480 * 2;
-            
-            const ctx = canvas.getContext('2d');
-
-            // วาดวิดีโอ (ต้อง flip กลับด้านเพราะเรา flip css ไว้)
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-            ctx.restore();
-
-            // วาดกรอบทับลงไป
-            ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
-
-            // แปลงเป็น Data URL
-            const dataURL = canvas.toDataURL('image/png');
-
-            // ส่งไป Backend
-            fetch('/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: dataURL })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    document.getElementById('result-area').style.display = 'block';
-                    document.getElementById('qr-image').src = data.qrCode;
-                    document.getElementById('drive-link').href = data.link;
-                    alert('บันทึกรูปสำเร็จ!');
-                } else {
-                    alert('เกิดข้อผิดพลาดในการอัปโหลด');
-                }
+        function runCountdown(sec) {
+            return new Promise(resolve => {
+                let count = sec;
+                const el = document.getElementById('countdown');
+                el.classList.remove('hidden');
+                const timer = setInterval(() => {
+                    el.innerText = count;
+                    if(count === 0) {
+                        clearInterval(timer);
+                        el.classList.add('hidden');
+                        resolve();
+                    }
+                    count--;
+                }, 1000);
             });
+        }
+
+        function capturePhoto() {
+            const video = document.getElementById('camera-feed');
+            const canvas = document.getElementById('hidden-canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            const imgData = canvas.toDataURL('image/png');
+            capturedImages.push(imgData);
+        }
+
+        function renderSelection() {
+            const container = document.getElementById('available-photos');
+            container.innerHTML = capturedImages.map((img, i) => 
+                `<img src="${img}" class="w-full rounded shadow cursor-pointer border-4 border-transparent hover:border-pink-500" onclick="putInSlot('${img}')">`
+            ).join('');
+        }
+
+        function putInSlot(img) {
+            if(currentSlot > 2) currentSlot = 0;
+            const slots = document.querySelectorAll('.photo-slot');
+            slots[currentSlot].innerHTML = `<img src="${img}" class="w-full h-full object-cover">`;
+            selectedForFrame[currentSlot] = img;
+            currentSlot++;
+        }
+
+        function generateQR() {
+            // ในขั้นตอนจริงต้องส่งรูปไป Google Drive แล้วเอา URL มาทำ QR
+            // ตัวอย่างนี้จำลองการไปหน้าสุดท้าย
+            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://drive.google.com/your-link`;
+            nextScreen('screen-done');
+        }
+
+        function resetBooth() {
+            location.reload(); // วิธีที่ง่ายที่สุดในการล้างค่าทั้งหมด
         }
     </script>
 </body>
